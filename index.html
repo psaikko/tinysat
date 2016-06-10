@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>tinysat.js</title>
+        <link rel="stylesheet" type="text/css" href="style.css"/>
+    </head>
+    <body>
+        <h1>tinysat.js</h1>
+        <div hidden="true">
+        <div class="suboptions">
+            Debug output:<br>
+            <input type="radio" name="logging" value="none" checked>None<br>
+            <input type="radio" name="logging" value="comments">Comment lines<br>
+            <input type="radio" name="logging" value="console">js Console<br>
+        </div>
+        <div class="suboptions">
+            Clause learning:<br>
+            <input type="radio" name="learning" value="firstUIP" checked>first-UIP<br>
+            <input type="radio" name="learning" value="lastUIP">last-UIP<br>
+        </div>
+        <div class="suboptions">
+            Decision heuristic:<br>
+            <input type="radio" name="heuristic" value="vsids" checked>VSIDS<br>
+            <input type="radio" name="heuristic" value="fixed">Fixed<br>
+        </div>
+        <div class="suboptions">
+            Resource budgets:<br>
+            Conflicts <input type="text" name="conf_lim" value="100000" size="10"><br>
+            Propagations <input type="text" name="prop_lim" value="1000000" size="10"><br>
+        </div>
+        <div style="clear: both;"></div>
+        </div>
+        <textarea id="txt_wcnf" cols="80" rows="12">
+c this is a comment
+p cnf 3 8
+1 2 3 0
+1 2 -3 0
+1 -2 3 0
+1 -2 -3 0
+-1 2 3 0
+-1 2 -3 0
+-1 -2 3 0
+-1 -2 -3 0
+        </textarea><br>
+        <button id="btn_solve">solve</button><br>
+        <textarea id="txt_result" cols="80" rows="4">
+        </textarea>
+        <script src="tinysat.js"></script>
+    </body>
+</html>
