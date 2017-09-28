@@ -14,7 +14,7 @@ const conf_budget = 50000;
 var initSolver = function () {
 
 	var logger = function(s) { console.log(s); };
-	logger = function(s) { };
+	//logger = function(s) { };
 	var litVar = Math.abs;
 
 	var clauses = [];
@@ -38,7 +38,7 @@ var initSolver = function () {
 	var swap = function (arr, i, j) {
 		var t = arr[i];
 		arr[i] = arr[j];
-		arr[j] = t;
+		arr[j] = t;
 	}
 
 	var arrayToString = function(arr) {
@@ -58,11 +58,11 @@ var initSolver = function () {
 			if (i != arr.length - 1) s += ",";
 		}
 		s += "]";
-		return s;	
+		return s;
 	}
 
 	var isWhitespace = function(c) {
-		return (c == '\t') || (c == '\n') || (c == ' ');
+		return (c == '\t') || (c == '\n') || (c == ' ');
 	}
 
 	var skipWhitespace = function (text, i) {
@@ -93,21 +93,21 @@ var initSolver = function () {
 	var parse = function (text) {
 		logger("parse input");
 		var i = 0;
-		var maxVar = 0; 
+		var maxVar = 0;
 		while (i < text.length) {
 			i = skipWhitespace(text, i);
 			if (i == text.length) break;
 
 			if (text[i] == 'c') {
-				while(text[i++] != '\n') ;
+				while(text[i++] != '\n' && i < text.length) ;
 			} else if (text[i] == 'p') {
-				while(text[i++] != '\n') ;
+				while(text[i++] != '\n' && i < text.length) ;
 			} else {
 				var clause = []
 				var lit = 0;
 				while (i < text.length) {
 					var j = 0;
-					while (!isWhitespace(text[i+j]) && i+j < text.length) 
+					while (!isWhitespace(text[i+j]) && i+j < text.length)
 						++j;
 					lit = parseInt(text.substring(i, i+j))
 					if (lit != 0) {
@@ -134,11 +134,11 @@ var initSolver = function () {
 	var pushAssignment = function (lit, reason) {
 		var v = litVar(lit);
 		assignment[v] = litPolarity(lit);
-		assignLevel[v] = level;
+		assignLevel[v] = level;
 		assignReason[v] = reason;
 		assignStack.push(v);
 
-		propQueue.push({ 
+		propQueue.push({
 			lit    : lit,
 			reason : reason
 		});
@@ -198,18 +198,18 @@ var initSolver = function () {
 					logger("conflict "+arrayToString(clauses[i]));
 					propQueue = [];
 					propInd = 0;
-					return { 
+					return {
 						conflict:clauses[i]
 					};
 					break;
-				} else if (unsats == clauses[i].length - 1 && 
+				} else if (unsats == clauses[i].length - 1 &&
 					         !seen[clauses[i][j_undef]]) {
 					seen[clauses[i][j_undef]] = true;
 					pushAssignment(clauses[i][j_undef], clauses[i]);
 					++propagations;
-					logger("enqueue " + clauses[i][j_undef] + 
+					logger("enqueue " + clauses[i][j_undef] +
 											" from " + arrayToString(clauses[i]));
-				} 
+				}
 			}
 
 			if (sat_clauses == clauses.length)
@@ -231,7 +231,7 @@ var initSolver = function () {
 		var seen = {};
 		var i_stack = assignStack.length - 1;
 
-		var clause = []; 	
+		var clause = [];
 		var assertingLits = 0;
 
 		var lit = null;
@@ -241,7 +241,7 @@ var initSolver = function () {
 		do {
 			for (var i = 0; i < reason.length; ++i) {
 				var vi = litVar(reason[i]);
-				if (!seen[vi] && vi != v && assignLevel[vi] > 0) { 
+				if (!seen[vi] && vi != v && assignLevel[vi] > 0) {
 					seen[vi] = true;
 					if (assignLevel[vi] == level) {
 						console.log(reason[i]+" deferred");
@@ -275,7 +275,7 @@ var initSolver = function () {
 	var analyze = function (conflict) {
 		logger("analyze");
 		// TODO: learn 1UIP
-		var clause = [];	
+		var clause = [];
 		var stack = [];
 		var seen = {};
 
@@ -335,9 +335,9 @@ var initSolver = function () {
 			var res = propagate();
 			if (res.conflict) {
 				var learnt = analyze(res.conflict);
-				if (learnt.length == 0) 
-					return { 
-						status: UNSAT 
+				if (learnt.length == 0)
+					return {
+						status: UNSAT
 					};
 				clauses.push(learnt);
 
@@ -347,15 +347,15 @@ var initSolver = function () {
 					if (i_level != level);
 						popTo = Math.max(popTo, i_level - 1);
 				}
-				
+
 				popAssignments(popTo);
 				// by convention first literal is asserting
 				pushAssignment(learnt[0], learnt);
 			} else if (res.sat) {
 				logger("assignment "+assignmentToString());
-				return { 
+				return {
 					status: SAT,
-					model: assignment 
+					model: assignment
 				};
 			} else {
 				++level;
@@ -382,7 +382,7 @@ var solve = function () {
 	var result = solver.solve();
 	var t_end = (new Date()).getTime();
 
-	document.getElementById('txt_result').value += 
+	document.getElementById('txt_result').value +=
 		"c "+(t_end - t_start)+"ms\n";
 
 	if (result.status == SAT) {
