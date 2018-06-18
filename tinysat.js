@@ -14,10 +14,11 @@ const conf_budget = 50000;
 var initSolver = function () {
 
 	var logger = function(s) { console.log(s); };
-	//logger = function(s) { };
+	logger = function(s) { };
 	var litVar = Math.abs;
 
 	var clauses = [];
+	var watches = [];
 	var origClauses = 0;
 
 	var propQueue = [];
@@ -163,8 +164,106 @@ var initSolver = function () {
 	}
 
 	// propagate assignments in propQueue
+	var propagate_2wl = function () {
+
+		logger("propagate");
+
+		while (propQueue.length) {
+			propQueue = [];
+
+			// maintain invariant:
+			//   both first literals unassigned OR
+			//   one of first literals satisfies clause
+			// otherwise:
+			//   propagate single unassigned literal OR
+			//   report conflict
+			var sat_clauses = 0;
+			nextclause: for (var i = 0; i < clauses.length; ++i) {
+				//logger("clause "+i);
+
+				if (clauses[i].length == 1) {
+					var l = clauses[i][0];
+					var a = assignment[litVar(l)];
+					if (a == UNDEF) {
+						++propagations;
+						pushAssignment(clauses[i][0], clauses[i]);
+					} else if (a == litPolarity(l)) {
+						++sat_clauses;
+						continue nextclause;
+					} else if (a != litPolarity(l)) {
+						++conflicts;
+						return { conflict:clauses[i] };
+					}
+				} else {
+					var w1 = clauses[i][0];
+					var w2 = clauses[i][1];
+					var a1 = assignment[litVar(w1)];
+					var a2 = assignment[litVar(w2)];
+
+					if (a1 == UNDEF && a2 == UNDEF) {
+						continue nextclause;
+					}
+					if (a1 == litPolarity(w1) || a2 == litPolarity(w2)) {
+						++sat_clauses;
+						continue nextclause;
+					}
+
+					//
+					// attempt to fix invariant
+					//
+					var first_ok = (a1 == UNDEF);
+
+					if (a2 == UNDEF) {
+						swap(clauses[i], 0, 1);
+						first_ok = true;
+					}
+
+					// now either a1 == UNDEF or both UNSAT
+					for (var j = 2; j < clauses[i].length; ++j) {
+						if (assignment[litVar(clauses[i][j])] == UNDEF) {
+							if (first_ok) {
+								swap(clauses[i], 1, j);
+								continue nextclause;
+							} else { // both unsat
+								swap(clauses[i], 0, j);
+								first_ok = true;
+							}
+						} else if (assignment[litVar(clauses[i][j])] == litPolarity(clauses[i][j])) {
+							swap(clauses[i], 0, j);
+							++sat_clauses;
+							continue nextclause;
+						}
+					}
+
+					//
+					// could not fix: do propagation or conflict
+					//
+					a1 = assignment[litVar(clauses[i][0])];
+					if (a1 != UNDEF) {
+						++conflicts;
+						logger("conflict "+arrayToString(clauses[i]));
+
+						propQueue = [];
+						propInd = 0;
+						return { conflict: clauses[i] };
+					} else {
+						++propagations;
+						pushAssignment(clauses[i][0], clauses[i]);
+						logger("enqueue " + clauses[i][0] +" from " + arrayToString(clauses[i]));
+					}
+				}
+			}
+
+			if (sat_clauses == clauses.length)
+				return { sat: true };
+		}
+		propQueue = [];
+		propInd = 0;
+		return {};
+	}
+
+	// propagate assignments in propQueue
 	var propagate = function () {
-		// TODO: 2WL
 		logger("propagate");
 		var seen = {};
 		while (propInd < propQueue.length) {
@@ -201,7 +300,6 @@ var initSolver = function () {
 					return {
 						conflict:clauses[i]
 					};
-					break;
 				} else if (unsats == clauses[i].length - 1 &&
 					         !seen[clauses[i][j_undef]]) {
 					seen[clauses[i][j_undef]] = true;
@@ -219,8 +317,6 @@ var initSolver = function () {
 		propInd = 0;
 		return {};
 	}
-
-	const first_uip = true;
 
 	var analyze_1uip = function (conflict) {
 		logger("analyze "+conflictToString(conflict));
@@ -340,15 +436,15 @@ var initSolver = function () {
 			if (propagations > prop_budget ||
 					conflicts > conf_budget) {
 				logger("budget exceeded");
-				logger("propagations: "+propagations+"\nconflicts: "+conflicts);
+				logger("propagations: "+propagations+"\nconflicts: "+conflicts+"\ndecisions: "+decisions);
 				return { status: UNKNOWN };
 			}
 			logger("- - - - - - - - - - -");
-			var res = propagate();
+			var res = propagate_2wl();
 			if (res.conflict) {
 				var learnt = analyze_1uip(res.conflict);
 				if (learnt.length == 0) {
-					logger("propagations: "+propagations+"\nconflicts: "+conflicts);
+					logger("propagations: "+propagations+"\nconflicts: "+conflicts+"\ndecisions: "+decisions);
 					return {
 						status: UNSAT
 					};
