@@ -222,7 +222,6 @@ var initSolver = function () {
 
 	const first_uip = true;
 
-	// TODO: fix this
 	var analyze_1uip = function (conflict) {
 		logger("analyze "+conflictToString(conflict));
 
@@ -244,25 +243,31 @@ var initSolver = function () {
 				if (!seen[vi] && vi != v && assignLevel[vi] > 0) {
 					seen[vi] = true;
 					if (assignLevel[vi] == level) {
-						console.log(reason[i]+" deferred");
+						//console.log(reason[i]+" deferred");
 						++assertingLits;
 					} else {
-						console.log(reason[i]+" included");
+						//console.log(reason[i]+" included");
 						clause.push(reason[i]);
 					}
 				}
 			}
 
-			while (!seen[litVar(assignStack[i_stack])]) --i_stack;
+			// discard assigned variables not seen in analysis
+			while (!seen[litVar(assignStack[i_stack])]) {
+				--i_stack;
+			}
 
+			// lit was used to derive conflict
 			lit = assignStack[i_stack];
 			--i_stack;
 			v = litVar(lit)
+
+			// analyze reason for v next
 			reason = assignReason[v];
 			seen[v] = false;
 			--assertingLits;
 
-			logger(lit+" from "+conflictToString(reason));
+			//logger(lit+" from "+conflictToString(reason));
 		} while (assertingLits > 0);
 
 		clause.push(-lit);
@@ -274,7 +279,6 @@ var initSolver = function () {
 
 	var analyze = function (conflict) {
 		logger("analyze");
-		// TODO: learn 1UIP
 		var clause = [];
 		var stack = [];
 		var seen = {};
@@ -325,27 +329,38 @@ var initSolver = function () {
 	var cdcl = function () {
 		// TODO: restarts
 		logger("init cdcl")
+
+		for (var i = 0; i < clauses.length; ++i) {
+			if (clauses[i].length == 1) {
+				pushAssignment(clauses[i][0], []);
+			}
+		}
+
 		while (true) {
 			if (propagations > prop_budget ||
 					conflicts > conf_budget) {
 				logger("budget exceeded");
+				logger("propagations: "+propagations+"\nconflicts: "+conflicts);
 				return { status: UNKNOWN };
 			}
 			logger("- - - - - - - - - - -");
 			var res = propagate();
 			if (res.conflict) {
-				var learnt = analyze(res.conflict);
-				if (learnt.length == 0)
+				var learnt = analyze_1uip(res.conflict);
+				if (learnt.length == 0) {
+					logger("propagations: "+propagations+"\nconflicts: "+conflicts);
 					return {
 						status: UNSAT
 					};
+				}
 				clauses.push(learnt);
 
+				// backjump to earliest level at which learnt is unit
 				var popTo = 0;
-				for (var i = 0; i < learnt.length; ++i) {
+				for (var i = 1; i < learnt.length; ++i) {
 					var i_level = assignLevel[litVar(learnt[i])];
 					if (i_level != level);
-						popTo = Math.max(popTo, i_level - 1);
+						popTo = Math.max(popTo, i_level);
 				}
 
 				popAssignments(popTo);
@@ -353,6 +368,7 @@ var initSolver = function () {
 				pushAssignment(learnt[0], learnt);
 			} else if (res.sat) {
 				logger("assignment "+assignmentToString());
+				logger("propagations: "+propagations+"\nconflicts: "+conflicts);
 				return {
 					status: SAT,
 					model: assignment
