@@ -8,13 +8,16 @@ const SAT = 10;
 const UNSAT = 11;
 const UNKNOWN = 12;
 
-const prop_budget = 500000;
-const conf_budget = 50000;
 
 var initSolver = function () {
 
+	var prop_budget = 50000;
+	var conf_budget = 5000;
+	var time_budget = 10;
+
+	var t_begin = 0;
+
 	var logger = function(s) { console.log(s); };
-	logger = function(s) { };
 	var litVar = Math.abs;
 
 	var clauses = [];
@@ -22,7 +25,6 @@ var initSolver = function () {
 	var origClauses = 0;
 
 	var propQueue = [];
-	var propInd = 0;
 
 	var assignment = []
 	var assignLevel = []
@@ -90,6 +92,20 @@ var initSolver = function () {
 		return s;
 	}
 
+	var addClause = function (clause) {
+		clauses.push(clause);
+
+		for (var i = 0; i < clause.length; ++i) {
+			var l = clause[i];
+			
+			if (-l in watches) {
+				watches[-l].push(clauses.length - 1);
+			} else {
+				watches[-l] = [clauses.length - 1];
+			}
+		}
+	}
+
 	// parse cnf format instance
 	var parse = function (text) {
 		logger("parse input");
@@ -120,7 +136,7 @@ var initSolver = function () {
 						break;
 					}
 				}
-				clauses.push(clause)
+				addClause(clause);
 			}
 		}
 
@@ -168,18 +184,32 @@ var initSolver = function () {
 
 		logger("propagate");
 
-		while (propQueue.length) {
-			propQueue = [];
-
+		var propInd = 0;
+		while (propInd < propQueue.length) {
+			
 			// maintain invariant:
 			//   both first literals unassigned OR
 			//   one of first literals satisfies clause
 			// otherwise:
 			//   propagate single unassigned literal OR
 			//   report conflict
-			var sat_clauses = 0;
-			nextclause: for (var i = 0; i < clauses.length; ++i) {
+
+			
+			var prop_lit = propQueue[propInd].lit;
+			propInd++;
+
+			if (!(prop_lit in watches)) {
+				// nothing to do
+				logger(prop_lit + " not watched");
+				continue;
+			}
+	
+			logger(prop_lit + " watched in " + watches[prop_lit].length);
+
+			//nextclause: for (var i = 0; i < clauses.length; ++i) {
+			nextclause: for (var wi = 0; wi < watches[prop_lit].length; ++wi) {
 				//logger("clause "+i);
+				var i = watches[prop_lit][wi]; // index of watched clause
 
 				if (clauses[i].length == 1) {
 					var l = clauses[i][0];
@@ -188,7 +218,6 @@ var initSolver = function () {
 						++propagations;
 						pushAssignment(clauses[i][0], clauses[i]);
 					} else if (a == litPolarity(l)) {
-						++sat_clauses;
 						continue nextclause;
 					} else if (a != litPolarity(l)) {
 						++conflicts;
@@ -204,7 +233,6 @@ var initSolver = function () {
 						continue nextclause;
 					}
 					if (a1 == litPolarity(w1) || a2 == litPolarity(w2)) {
-						++sat_clauses;
 						continue nextclause;
 					}
 
@@ -230,7 +258,6 @@ var initSolver = function () {
 							}
 						} else if (assignment[litVar(clauses[i][j])] == litPolarity(clauses[i][j])) {
 							swap(clauses[i], 0, j);
-							++sat_clauses;
 							continue nextclause;
 						}
 					}
@@ -244,7 +271,6 @@ var initSolver = function () {
 						logger("conflict "+arrayToString(clauses[i]));
 
 						propQueue = [];
-						propInd = 0;
 						return { conflict: clauses[i] };
 					} else {
 						++propagations;
@@ -253,12 +279,9 @@ var initSolver = function () {
 					}
 				}
 			}
-
-			if (sat_clauses == clauses.length)
-				return { sat: true };
 		}
+
 		propQueue = [];
-		propInd = 0;
 		return {};
 	}
 
@@ -266,13 +289,14 @@ var initSolver = function () {
 	var propagate = function () {
 		logger("propagate");
 		var seen = {};
+		var propInd = 0;
+
 		while (propInd < propQueue.length) {
 			var p = propQueue[propInd];
 			var pv = litVar(p.lit);
 			logger("propagating "+p.lit+"@"+level+" from "+arrayToString(p.reason));
 			propInd++;
 
-			var sat_clauses = 0;
 			nextclause: for (var i = 0; i < clauses.length; ++i) {
 				var unsats = 0;
 				var undefs = 0;
@@ -285,7 +309,6 @@ var initSolver = function () {
 						if (undefs > 1) continue nextclause;
 						j_undef = j;
 					} else if (a == litPolarity(l)) {
-						++sat_clauses;
 						continue nextclause;
 					} else if (a != litPolarity(l)) {
 						++unsats;
@@ -309,10 +332,8 @@ var initSolver = function () {
 											" from " + arrayToString(clauses[i]));
 				}
 			}
-
-			if (sat_clauses == clauses.length)
-				return { sat: true };
 		}
+
 		propQueue = [];
 		propInd = 0;
 		return {};
@@ -420,10 +441,24 @@ var initSolver = function () {
 				return i;
 			}
 		}
+		return 0; // no undefs = SAT
 	}
 
 	var cdcl = function () {
 		// TODO: restarts
+
+		// enable logging?
+		if (!document.getElementById('chk_log').checked) {
+			logger = function(s) { };
+		}
+
+		// resource budgets?
+		prop_budget = parseInt(document.getElementById('txt_prop').value);
+		time_budget = parseInt(document.getElementById('txt_time').value);
+		conf_budget = parseInt(document.getElementById('txt_conf').value);
+
+		t_begin = (new Date()).getTime();
+
 		logger("init cdcl")
 
 		for (var i = 0; i < clauses.length; ++i) {
@@ -434,22 +469,30 @@ var initSolver = function () {
 
 		while (true) {
 			if (propagations > prop_budget ||
-					conflicts > conf_budget) {
-				logger("budget exceeded");
-				logger("propagations: "+propagations+"\nconflicts: "+conflicts+"\ndecisions: "+decisions);
+					conflicts > conf_budget || 
+					((new Date()).getTime() - t_begin) / 1000 > time_budget) {
+				console.log("budget exceeded");
+				console.log("propagations: "+propagations+
+										"\nconflicts: "+conflicts+
+										"\ndecisions: "+decisions+
+										"\ntime: "+(((new Date()).getTime() - t_begin) / 1000));
 				return { status: UNKNOWN };
 			}
 			logger("- - - - - - - - - - -");
-			var res = propagate_2wl();
+			var res = document.getElementById('chk_2wl').checked ?
+				propagate_2wl() :
+				propagate();
 			if (res.conflict) {
-				var learnt = analyze_1uip(res.conflict);
+				var learnt = document.getElementById('chk_1uip').checked ?
+					analyze_1uip(res.conflict) :
+					analyze(res.conflict);
 				if (learnt.length == 0) {
-					logger("propagations: "+propagations+"\nconflicts: "+conflicts+"\ndecisions: "+decisions);
+					console.log("propagations: "+propagations+"\nconflicts: "+conflicts+"\ndecisions: "+decisions);
 					return {
 						status: UNSAT
 					};
 				}
-				clauses.push(learnt);
+				addClause(learnt);
 
 				// backjump to earliest level at which learnt is unit
 				var popTo = 0;
@@ -462,16 +505,22 @@ var initSolver = function () {
 				popAssignments(popTo);
 				// by convention first literal is asserting
 				pushAssignment(learnt[0], learnt);
-			} else if (res.sat) {
-				logger("assignment "+assignmentToString());
-				logger("propagations: "+propagations+"\nconflicts: "+conflicts);
-				return {
-					status: SAT,
-					model: assignment
-				};
 			} else {
-				++level;
-				pushAssignment(decision(), []);
+
+				var branch_var = decision();
+
+				if (branch_var) {
+					++level;
+					pushAssignment(branch_var, []);	
+				} else {
+					// SAT
+					logger("assignment "+assignmentToString());
+					console.log("propagations: "+propagations+"\nconflicts: "+conflicts);
+					return {
+						status: SAT,
+						model: assignment
+					};
+				}
 			}
 		}
 	}

@@ -44,6 +44,18 @@ p cnf 3 8
 -1 -2 -3 0
         </textarea><br>
         <button id="btn_solve">solve</button><br>
+        <div style="float: left; width: 50%;">
+            <h3>Options:</h3>
+            <input type="checkbox" id="chk_1uip">1UIP<br>
+            <input type="checkbox" id="chk_2wl">2WL<br>
+            <input type="checkbox" id="chk_log">Logging<br>
+        </div>
+        <div style="float: left; width: 50%;">
+        <h3>Budgets:</h3>
+            Propagations: <input type="text" id="txt_prop" value="100000" size=8><br>
+            Conflicts: <input type="text" id="txt_conf" value="10000" size=8><br>
+            Time (s): <input type="text" id="txt_time" value="10" size=8><br>
+        </div>
         <textarea id="txt_result" cols="80" rows="4">
         </textarea>
         <script src="tinysat.js"></script>
