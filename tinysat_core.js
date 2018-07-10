@@ -154,7 +154,7 @@ var initSolver = function () {
     assignment[v] = litPolarity(lit);
     assignLevel[v] = level;
     assignReason[v] = reason;
-    assignStack.push(v);
+    assignStack.push(lit);
 
     propQueue.push({
       lit    : lit,
@@ -390,7 +390,7 @@ var initSolver = function () {
 
       --assertingLits;
 
-      //logger(lit+" from "+conflictToString(reason));
+      logger(lit+" from "+conflictToString(reason));
     } while (assertingLits > 0);
 
     clause.push(-lit);
