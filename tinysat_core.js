@@ -532,5 +532,11 @@ var initSolver = function () {
   }
 };
 
-if (typeof module !== 'undefined')
+if (typeof module !== 'undefined') {
   module.exports.initSolver = initSolver;
+  module.exports.status = {
+    'UNSAT' : UNSAT,
+    'SAT' : SAT,
+    'UNKNOWN' : UNKNOWN
+  };
+}
