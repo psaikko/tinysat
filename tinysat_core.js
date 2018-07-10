@@ -365,10 +365,10 @@ var initSolver = function () {
         if (!seen[vi] && vi != v && assignLevel[vi] > 0) {
           seen[vi] = true;
           if (assignLevel[vi] >= level) {
-            console.log(reason[i]+" deferred");
+            logger(reason[i]+" deferred");
             ++assertingLits;
           } else {
-            console.log(reason[i]+" included");
+            logger(reason[i]+" included");
             clause.push(reason[i]);
           }
         }
@@ -479,7 +479,14 @@ var initSolver = function () {
                     "\nconflicts: "+conflicts+
                     "\ndecisions: "+decisions+
                     "\ntime: "+(((new Date()).getTime() - t_begin) / 1000));
-        return { status: UNKNOWN };
+        return { 
+          status: UNKNOWN,
+          budgets: {
+            'propagations': propagations,
+            'conflicts': conflicts,
+            'time': ((new Date()).getTime() - t_begin)
+          }
+        };
       }
       logger("- - - - - - - - - - -");
 
